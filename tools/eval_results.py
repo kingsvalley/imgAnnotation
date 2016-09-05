@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 '''
+	luo
 	this program make statistics on the detection resutls 
 	IoU criteron is used and the output file is send to the matlab 
 	program to draw the ROC curves !
