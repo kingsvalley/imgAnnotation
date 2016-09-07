@@ -1,12 +1,11 @@
 #!/usr/bin/python
 
 '''
-	luo
 	this program make statistics on the detection resutls 
 	IoU criteron is used and the output file is send to the matlab 
 	program to draw the ROC curves !
 '''
-import os
+import os, cv2
 import json
 
 CLASSES = ('__background__',
@@ -78,7 +77,8 @@ def compute_IoU(GTBox, RefBox):
 if __name__ == '__main__':
 	
 	# first read the benchmark annotations
-	annotated_json_file = '/home/luo/data/XiaHeRoad/WhiteBalance001/annotation.json'
+	json_dir =  '/home/luo/imgAnnotation/annotation/XiaHeRoad/record001/'
+	annotated_json_file = json_dir + 'annotation.json'
 	annotations = json.load(open(annotated_json_file,'r'))
 	
 	# first read all the detected bboxes
@@ -121,34 +121,59 @@ if __name__ == '__main__':
 	category_units = [] # store all the detected category
 	name_units = []     # store all the image name for each unit
 	category_bench_units=[] # store the true category label for each unit
+	distance_bench_units = []
+	integrity_bench_units = []
+	light_bench_units = []
+	occlusion_bench_units = []
+
 	complexity_bench_units =[] 
 	id_bench_units = []
+	detected_bbox_units = []
+	bench_bbox_units = []
 
 	for bbox in bbox_units:
+
+		# skip these categories not for current evaluations
 		if bbox.category not in CLASS_EVAL:
 			continue
+
 		# search the corresponding box
 		annotation = search_bbox_in_benchmark(annotations,bbox.name)
+		
 		# compute the iou regions
 		GTBox = []
 		for i in range(len(annotation['bbox'])):
 			GTBox.append(annotation['bbox'][i])
 		iou = compute_IoU( GTBox, bbox.bbox )
 		
-
 		iou_units.extend(iou)
+		
+		bench_bbox_units.extend(annotation['bbox'])
+		detected_bbox_units.extend([bbox.bbox for i in iou])
 		name_units.extend([bbox.name for i in iou])
 		score_units.extend([bbox.score for i in iou])
 		category_units.extend([bbox.category for i in iou])
 		category_bench_units.extend(annotation['category'])
 		complexity_bench_units.extend(annotation['complexity'])
+		occlusion_bench_units.extend(annotation['occlusion'])
+		light_bench_units.extend(annotation['light'])
+		integrity_bench_units.extend(annotation['integrity'])
+		distance_bench_units.extend(annotation['distance'])
 		id_bench_units.extend([len(annotation['id']) for i in range(len(annotation['id']))])
 
 	# format the results and output to the matlab interface     
-	target = open('results.txt', 'w')
-	
+	target = open('/home/luo/imgAnnotation/tools/drawROC/results/results.txt', 'w')
+	target_for_img = open('results.txt','w')
+
+	img_annotations = dict()
+
 	for name in im_in_benchmark:
+		
+		img_annotations[name] = []
+		
 		indices = []
+
+		# compute the range of bbox idx belongs to each image
 		for idx in range(len(name_units)):
 			if name_units[idx] == name:
 				indices.append(idx)
@@ -162,31 +187,97 @@ if __name__ == '__main__':
 		is_false_negatives = [ False for i in range(gap) ]
 		is_false_positive = True
 
+		count = 0
+		true_positive_dict = dict()
 		
-		count = 0 
-		for indice in indices:
+		#print gap
+		for idx in range(len(indices)):
+			#print idx 
+			indice = indices[idx]
+			#print score_units[indice]
+			#print "iou {:f} c: {:s}".format(iou_units[indice],category_bench_units[indice])
 
-			if count < gap :
-				if iou_units[indice] > 0.5 and category_bench_units[indice] in CLASS_EVAL:
-						is_false_positive = False
-						target.write('1 {:f} {:f}\n'.format(score_units[indice],iou_units[indice]))
-						print('{:s} 1 {:f} {:f}'.format(name,score_units[indice],iou_units[indice]))
-						is_false_negatives[count] = True
-				count = count + 1
-			else:
+			count = (idx+1) % gap
+				
+			if iou_units[indice] > 0.5 and category_bench_units[indice] in CLASS_EVAL:
+				# not a false postive 
+				is_false_positive = False
+
+				# not a negative
+				index = count-1
+				if count == 0 :
+					index = gap - 1
+				is_false_negatives[index] = True
+
+				if count not in true_positive_dict:
+					true_positive_dict[count] = []
+					true_positive_dict[count].append(score_units[indice])
+					true_positive_dict[count].append(iou_units[indice])
+					true_positive_dict[count].append(indice)
+				else:
+					if true_positive_dict[count][0] < score_units[indice]:
+						true_positive_dict[count][0] = score_units[indice]
+						true_positive_dict[count][1] = iou_units[indice]
+						true_positive_dict[count][2] = indice
+			
+			if count == 0 :
 				if is_false_positive:
-					target.write('0 {:f} 0'.format(score_units[indice]))
+					target.write('0 {:f} 0\n'.format(score_units[indice]))
 					print('{:s} 0 {:f} 0'.format(name,score_units[indice]))
+					bbox_show = detected_bbox_units[indice];
+					bbox_show.append(0)
+					img_annotations[name].append(bbox_show)
 				is_false_positive = True
-				count = 0 
+
+
+		for key in true_positive_dict.keys():
+			indice = true_positive_dict[key][2]
+			if light_bench_units[indice] or occlusion_bench_units[indice] or integrity_bench_units[indice] or  distance_bench_units[indice]:
+				continue
+			
+			target.write('1 {:f} {:f}\n'.format(true_positive_dict[key][0],true_positive_dict[key][1]))
+			print '{:s} 1 {:f} {:f}'.format(name,true_positive_dict[key][0],true_positive_dict[key][1])
+			bbox_show = detected_bbox_units[indice];
+			bbox_show.append(1)
+			img_annotations[name].append(bbox_show)
 
 		for i in range(len(is_false_negatives)):
-			if category_bench_units[i] not in CLASS_EVAL:
+				
+			if  light_bench_units[indices[i]] or  occlusion_bench_units[indices[i]] or integrity_bench_units[indices[i]] or  distance_bench_units[indices[i]]:
 				continue
+
 			indicator = is_false_negatives[i]
+			if category_bench_units[indices[i]] not in CLASS_EVAL:
+				continue
 			if not indicator:
 				target.write('1 0 0\n')
 				print('{:s} 1 0 0'.format(name))
+				bbox_show = bench_bbox_units[indices[i]];
+				bbox_show.append(2)
+				img_annotations[name].append(bbox_show)
 
 	target.close()
+	json_str = json.dumps(img_annotations, default=lambda o: o.__dict__, sort_keys=True, indent = 4)
+	target_for_img.write(json_str)
+	target_for_img.close()
+
+
+	for key in img_annotations:
+		annotation = search_bbox_in_benchmark(annotations,key)
+		im_dir = annotation['dir']
+		im_path = os.path.join(im_dir,key)
+		im = cv2.imread(im_path)
+		font = cv2.FONT_HERSHEY_SIMPLEX
+		for bbox in img_annotations[key]:
+			if bbox[4] == 0 :
+				cv2.putText( im, 'false_alarm', ( int(bbox[0]), int(bbox[1])+30 ), font, 1, (0,0,255), 2 ,1)
+				cv2.rectangle ( im , ( int(bbox[0]), int(bbox[1]) ), (int(bbox[2]),  int(bbox[3])) , (255,0,0) , 5 )
+			elif bbox[4] == 1:
+				cv2.rectangle ( im , ( int(bbox[0]), int(bbox[1]) ), (int(bbox[2]),  int(bbox[3])) , (255,255,0) , 5 )
+			else:
+				cv2.putText( im, 'miss', ( int(bbox[0]), int(bbox[1])+30 ), font, 1, (0,0,255), 2 ,1)
+				cv2.rectangle ( im , ( int(bbox[0]), int(bbox[1]) ), (int(bbox[2]),  int(bbox[3])) , (255,0,255) , 5 )
+
+		out_dir = '/home/luo/exp'
+		cv2.imwrite(os.path.join(out_dir,key)+".jpg",im)
 

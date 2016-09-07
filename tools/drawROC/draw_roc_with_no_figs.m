@@ -1,6 +1,6 @@
-%Í¼Æ¬±£´æÔÚpathÏÂÃæ£¬Ãû×ÖÎªÉÏ²ãÂ·¾¶+png
-function draw_roc(path)
-labe_num=find(path=='\');
+%Í¼Æ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½pathï¿½ï¿½ï¿½æ£¬ï¿½ï¿½ï¿½ï¿½Îªï¿½Ï²ï¿½Â·ï¿½ï¿½+png
+function draw_roc_with_no_figs(path)
+labe_num=find(path=='/');
 name_fig=path((labe_num(end-1))+1:(labe_num(end)-1));
 files= dir(fullfile(path,'*.txt'));
 lengthfiles = length(files);

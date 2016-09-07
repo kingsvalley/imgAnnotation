@@ -10,11 +10,16 @@ if __name__ == '__main__':
 	
 	# first read the results
 	json_annotated_file = []
-	json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_1.annotation.json')
-	json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_2.annotation.json')
-	json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_3.annotation.json')
-	json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_4.annotation.json')
-	out_path = '/home/luo/data/XiaHeRoad/WhiteBalance001/annotation.json'
+	json_dir = '/home/luo/imgAnnotation/annotation/XiaHeRoad/record001/'
+	#json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_1.annotation.json')
+	#json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_1.annotation.json')
+	#json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_2.annotation.json')
+	#json_annotated_file.append ('/home/luo/data/XiaHeRoad/WhiteBalance001/camera_3.annotation.json')
+	json_annotated_file.append (json_dir + 'camera_1.annotation.json')
+	json_annotated_file.append (json_dir + 'camera_2.annotation.json')
+	json_annotated_file.append (json_dir + 'camera_3.annotation.json')
+	json_annotated_file.append (json_dir + 'camera_4.annotation.json')
+	out_path = json_dir + 'annotation.json'
 
 	annotated_list = []
 	for json_file in json_annotated_file :
